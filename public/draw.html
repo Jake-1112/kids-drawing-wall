@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>그림 그리기</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: #fafafa;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    touch-action: none;
+  }
+  #app { display: none; flex-direction: column; height: 100%; }
+  #app.ready { display: flex; }
+
+  #themeBar {
+    flex-shrink: 0; padding: 10px 14px; color: #fff; font-weight: 800; font-size: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  #canvasWrap {
+    flex: 1; position: relative; background: #ffffff;
+    background-image:
+      linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px),
+      linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  #canvas { position: absolute; top: 0; left: 0; touch-action: none; }
+
+  #toolbar { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 10px; background: #222; overflow-x: auto; }
+  .colorBtn { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.15); flex-shrink: 0; cursor: pointer; }
+  .colorBtn.active { border-color: #fff; transform: scale(1.1); }
+  .sizeBtn { width: 38px; height: 38px; border-radius: 50%; background: #444; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+  .sizeBtn.active { border-color: #fff; }
+  .sizeBtn span { background: #fff; border-radius: 50%; display: block; }
+  .spacer { flex: 1 1 auto; min-width: 4px; }
+  .actionBtn { flex-shrink: 0; border: none; border-radius: 10px; padding: 10px 16px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  #clearBtn { background: #555; color: #fff; }
+  #sendBtn { background: #ff5252; color: #fff; font-size: 17px; padding: 10px 22px; }
+
+  #nameBar { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #333; }
+  #nameInput { flex: 1; border: none; border-radius: 8px; padding: 8px 10px; font-size: 15px; outline: none; }
+  #nameBar label { color: #ccc; font-size: 13px; flex-shrink: 0; }
+
+  #toast {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+    background: rgba(0,0,0,0.8); color: #fff; padding: 20px 30px; border-radius: 16px;
+    font-size: 22px; font-weight: 700; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s; z-index: 10; text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+
+  #loadingMsg, #errorBox {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px; color: #fff; background: #111; text-align: center; padding: 20px;
+  }
+  #errorBox { display: none; }
+  #errorBox div.big { font-size: 40px; }
+</style>
+</head>
+<body>
+<div id="loadingMsg">불러오는 중...</div>
+<div id="errorBox">
+  <div class="big">🙈</div>
+  <div>이 놀이터는 종료되었거나 존재하지 않아요.</div>
+  <div style="font-size:13px;color:#aaa;">메인 화면에서 새로 QR코드를 받아주세요.</div>
+</div>
+
+<div id="app">
+  <div id="themeBar"><span id="themeLabel"></span></div>
+  <div id="nameBar">
+    <label for="nameInput">이름(선택)</label>
+    <input id="nameInput" type="text" maxlength="10" placeholder="누구 그림이에요?" />
+  </div>
+
+  <div id="canvasWrap">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div id="toolbar">
+    <div class="colorBtn active" data-color="#222222" style="background:#222222"></div>
+    <div class="colorBtn" data-color="#ff5252" style="background:#ff5252"></div>
+    <div class="colorBtn" data-color="#ff9800" style="background:#ff9800"></div>
+    <div class="colorBtn" data-color="#ffd600" style="background:#ffd600"></div>
+    <div class="colorBtn" data-color="#4caf50" style="background:#4caf50"></div>
+    <div class="colorBtn" data-color="#2196f3" style="background:#2196f3"></div>
+    <div class="colorBtn" data-color="#9c27b0" style="background:#9c27b0"></div>
+    <div class="colorBtn" data-color="#ffffff" style="background:#ffffff"></div>
+
+    <div class="sizeBtn" data-size="6"><span style="width:6px;height:6px;"></span></div>
+    <div class="sizeBtn active" data-size="12"><span style="width:12px;height:12px;"></span></div>
+    <div class="sizeBtn" data-size="22"><span style="width:20px;height:20px;"></span></div>
+
+    <div class="spacer"></div>
+    <button id="clearBtn" class="actionBtn">지우기</button>
+    <button id="sendBtn" class="actionBtn">화면으로 보내기 🚀</button>
+  </div>
+</div>
+
+<div id="toast">화면으로 날아갔어요! 🎉</div>
+
+<script src="/themes.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const sessionId = location.pathname.split('/').filter(Boolean).pop();
+  const socket = io();
+
+  const appEl = document.getElementById('app');
+  const loadingMsg = document.getElementById('loadingMsg');
+  const errorBox = document.getElementById('errorBox');
+  const themeBar = document.getElementById('themeBar');
+  const themeLabel = document.getElementById('themeLabel');
+
+  fetch(`/api/session/${sessionId}`)
+    .then((r) => { if (!r.ok) throw new Error('not_found'); return r.json(); })
+    .then((data) => {
+      const t = THEMES[data.theme] || THEMES.ocean;
+      themeBar.style.background = t.accent;
+      themeLabel.textContent = `${t.emoji} ${data.title ? data.title + ' · ' : ''}${t.label} 놀이터에 그림을 보내요`;
+      loadingMsg.style.display = 'none';
+      appEl.classList.add('ready');
+      socket.emit('joinSession', { sessionId, role: 'draw' });
+      initCanvas();
+    })
+    .catch(() => {
+      loadingMsg.style.display = 'none';
+      errorBox.style.display = 'flex';
+    });
+
+  socket.on('sessionEnded', () => {
+    appEl.classList.remove('ready');
+    errorBox.style.display = 'flex';
+  });
+
+  socket.on('drawingRejected', ({ reason } = {}) => {
+    const msg = reason === 'too_large'
+      ? '그림이 너무 커요! 조금 더 작게 그려주세요 🙏'
+      : '너무 빨리 보내고 있어요, 잠시 후 다시 시도해주세요 ⏳';
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1500);
+  });
+
+  function initCanvas() {
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const wrap = document.getElementById('canvasWrap');
+
+    let drawColor = '#222222';
+    let brushSize = 12;
+    let drawing = false;
+    let lastX = 0, lastY = 0;
+    let hasDrawn = false;
+
+    function resizeCanvas() {
+      const rect = wrap.getBoundingClientRect();
+      const prev = document.createElement('canvas');
+      prev.width = canvas.width; prev.height = canvas.height;
+      prev.getContext('2d').drawImage(canvas, 0, 0);
+
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(prev, 0, 0);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+      }
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function startDraw(e) {
+      e.preventDefault();
+      drawing = true;
+      hasDrawn = true;
+      const p = getPos(e);
+      lastX = p.x; lastY = p.y;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, brushSize / 2, 0, Math.PI * 2);
+      ctx.fillStyle = drawColor;
+      ctx.fill();
+    }
+
+    function moveDraw(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      const p = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = drawColor;
+      ctx.lineWidth = brushSize;
+      ctx.stroke();
+      lastX = p.x; lastY = p.y;
+    }
+
+    function endDraw() { drawing = false; }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', moveDraw);
+    window.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', moveDraw, { passive: false });
+    canvas.addEventListener('touchend', endDraw);
+    canvas.addEventListener('touchcancel', endDraw);
+
+    document.querySelectorAll('.colorBtn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.colorBtn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        drawColor = btn.dataset.color;
+      });
+    });
+
+    document.querySelectorAll('.sizeBtn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.sizeBtn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        brushSize = parseInt(btn.dataset.size, 10);
+      });
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      hasDrawn = false;
+    });
+
+    function extractDrawing() {
+      const w = canvas.width, h = canvas.height;
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const d = imgData.data;
+      let minX = w, minY = h, maxX = 0, maxY = 0;
+      let found = false;
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const i = (y * w + x) * 4;
+          const r = d[i], g = d[i + 1], b = d[i + 2];
+          if (!(r > 245 && g > 245 && b > 245)) {
+            d[i + 3] = 255;
+            found = true;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          } else {
+            d[i + 3] = 0;
+          }
+        }
+      }
+      if (!found) return null;
+
+      const pad = 10;
+      minX = Math.max(0, minX - pad);
+      minY = Math.max(0, minY - pad);
+      maxX = Math.min(w - 1, maxX + pad);
+      maxY = Math.min(h - 1, maxY + pad);
+
+      ctx.putImageData(imgData, 0, 0);
+
+      const cropW = maxX - minX + 1;
+      const cropH = maxY - minY + 1;
+      const out = document.createElement('canvas');
+      out.width = cropW;
+      out.height = cropH;
+      out.getContext('2d').drawImage(canvas, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      return out.toDataURL('image/png');
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 900);
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', () => {
+      if (!hasDrawn) { showToast('먼저 그림을 그려주세요! ✏️'); return; }
+      const dataUrl = extractDrawing();
+      if (!dataUrl) { showToast('먼저 그림을 그려주세요! ✏️'); return; }
+      const name = document.getElementById('nameInput').value.trim();
+      socket.emit('newDrawing', { image: dataUrl, name });
+      hasDrawn = false;
+      showToast('화면으로 날아갔어요! 🎉');
+    });
+  }
+</script>
+</body>
+</html>

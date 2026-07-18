@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>그림 놀이터 - 테마 선택</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: linear-gradient(160deg, #fdf6ec 0%, #eef3fb 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #card {
+    width: min(720px, 92vw);
+    padding: 40px clamp(20px, 5vw, 48px);
+    text-align: center;
+  }
+  h1 { font-size: clamp(26px, 4vw, 36px); color: #2b2b3a; margin-bottom: 6px; }
+  p.sub { color: #777; margin-bottom: 28px; font-size: 15px; }
+
+  #titleInput {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 16px;
+    border: 2px solid #e2e2ec;
+    border-radius: 12px;
+    margin-bottom: 28px;
+    outline: none;
+    text-align: center;
+  }
+  #titleInput:focus { border-color: #7c4dff; }
+
+  #themes {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .themeCard {
+    border: 3px solid transparent;
+    border-radius: 20px;
+    padding: 22px 10px;
+    cursor: pointer;
+    color: #fff;
+    font-weight: 800;
+    font-size: 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .themeCard .emoji { font-size: 40px; }
+  .themeCard:hover { transform: translateY(-3px); }
+  .themeCard.selected { border-color: #222; transform: translateY(-3px) scale(1.02); }
+
+  #startBtn {
+    border: none;
+    background: #ff5252;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 800;
+    padding: 16px 40px;
+    border-radius: 999px;
+    cursor: pointer;
+    opacity: 0.4;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  #startBtn.ready { opacity: 1; pointer-events: auto; }
+  #startBtn:active.ready { transform: scale(0.97); }
+
+  #errorMsg { color: #d32f2f; margin-top: 14px; font-size: 14px; min-height: 20px; }
+</style>
+</head>
+<body>
+<div id="card">
+  <h1>🎨 그림 놀이터</h1>
+  <p class="sub">테마를 고르면, 아이들이 그린 그림이 큰 화면에서 살아 움직여요</p>
+
+  <input id="titleInput" type="text" maxlength="40" placeholder="놀이터 제목 (선택, 예: 민준이의 생일파티 🎉)" />
+
+  <div id="themes"></div>
+
+  <button id="startBtn">시작하기 →</button>
+  <div id="errorMsg"></div>
+</div>
+
+<script src="/themes.js"></script>
+<script>
+  const themesEl = document.getElementById('themes');
+  const startBtn = document.getElementById('startBtn');
+  const errorMsg = document.getElementById('errorMsg');
+  let selectedTheme = null;
+
+  Object.entries(THEMES).forEach(([key, t]) => {
+    const card = document.createElement('div');
+    card.className = 'themeCard';
+    card.style.background = t.bgGradient;
+    card.dataset.theme = key;
+    card.innerHTML = `<span class="emoji">${t.emoji}</span><span>${t.label}</span>`;
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.themeCard').forEach((c) => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedTheme = key;
+      startBtn.classList.add('ready');
+      errorMsg.textContent = '';
+    });
+    themesEl.appendChild(card);
+  });
+
+  startBtn.addEventListener('click', async () => {
+    if (!selectedTheme) return;
+    startBtn.disabled = true;
+    startBtn.textContent = '준비 중...';
+    try {
+      const res = await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          theme: selectedTheme,
+          title: document.getElementById('titleInput').value.trim()
+        })
+      });
+      if (!res.ok) throw new Error('session_failed');
+      const data = await res.json();
+      window.location.href = `/display/${data.id}`;
+    } catch (e) {
+      errorMsg.textContent = '시작하지 못했어요. 서버 연결을 확인해주세요.';
+      startBtn.disabled = false;
+      startBtn.textContent = '시작하기 →';
+    }
+  });
+</script>
+</body>
+</html>

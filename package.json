@@ -1,0 +1,19 @@
+{
+  "name": "kids-drawing-wall-v2",
+  "version": "2.0.0",
+  "description": "테마를 고르면 QR코드로 아이들이 그림을 보내고, 큰 화면에서 테마에 맞게 떠다니는 인터랙티브 그림놀이터",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "socket.io": "^4.7.5"
+  },
+  "license": "MIT"
+}

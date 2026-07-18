@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>그림 놀이터 - 큰 화면</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  #stage { position: relative; width: 100%; height: 100%; overflow: hidden; transition: background 0.6s; }
+
+  #topBar {
+    position: fixed; top: 16px; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+    z-index: 20;
+    pointer-events: none;
+  }
+  #titleText {
+    color: rgba(255,255,255,0.92);
+    font-size: clamp(18px, 2.6vw, 30px);
+    font-weight: 800;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    pointer-events: none;
+  }
+  #exitBtn {
+    pointer-events: auto;
+    border: none; background: rgba(0,0,0,0.35); color: #fff;
+    padding: 10px 18px; border-radius: 999px; font-size: 14px; font-weight: 700;
+    cursor: pointer; backdrop-filter: blur(4px);
+  }
+  #exitBtn:hover { background: rgba(0,0,0,0.5); }
+
+  .item {
+    position: absolute; top: 0; left: 0; will-change: transform;
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.3));
+    opacity: 0; transition: opacity 0.6s ease;
+  }
+  .item img { display: block; pointer-events: none; }
+  .item.show { opacity: 1; }
+  .item .label {
+    position: absolute; left: 50%; bottom: -22px; transform: translateX(-50%);
+    color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6); white-space: nowrap;
+  }
+
+  .deco { position: absolute; pointer-events: none; }
+
+  #addBtn {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    border: none; background: #ff5252; color: #fff;
+    font-size: 18px; font-weight: 800; padding: 16px 32px; border-radius: 999px;
+    cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 20;
+  }
+  #addBtn:active { transform: translateX(-50%) scale(0.96); }
+
+  #count {
+    position: fixed; bottom: 14px; right: 20px; z-index: 20;
+    color: rgba(255,255,255,0.5); font-size: 13px;
+  }
+
+  /* QR 모달 */
+  #modalOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  #modalOverlay.show { display: flex; }
+  #modalBox {
+    background: #fff; border-radius: 24px; padding: 36px 44px;
+    text-align: center; max-width: 90vw;
+  }
+  #modalBox h2 { font-size: 22px; margin-bottom: 6px; color: #222; }
+  #modalBox p { color: #777; font-size: 14px; margin-bottom: 18px; }
+  #qrImg { width: 260px; height: 260px; border-radius: 12px; }
+  #drawUrlText {
+    margin-top: 14px; font-size: 13px; color: #999; word-break: break-all;
+  }
+  #closeModalBtn {
+    margin-top: 20px; border: none; background: #eee; color: #333;
+    padding: 10px 24px; border-radius: 999px; font-weight: 700; cursor: pointer;
+  }
+
+  #loadingMsg, #errorBox {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px; color: #fff; background: #111; z-index: 100;
+  }
+  #errorBox { display: none; }
+  #errorBox a {
+    color: #fff; background: #ff5252; padding: 12px 26px; border-radius: 999px;
+    text-decoration: none; font-weight: 700;
+  }
+</style>
+</head>
+<body>
+<div id="loadingMsg">불러오는 중...</div>
+<div id="errorBox">
+  <div>이 놀이터를 찾을 수 없어요. (종료되었거나 잘못된 주소예요)</div>
+  <a href="/">처음 화면으로</a>
+</div>
+
+<div id="stage" style="display:none;">
+  <div id="topBar">
+    <div id="titleText"></div>
+    <button id="exitBtn">나가기 ✕</button>
+  </div>
+  <div id="count"></div>
+</div>
+
+<button id="addBtn" style="display:none;">➕ 그림 추가하기</button>
+
+<div id="modalOverlay">
+  <div id="modalBox">
+    <h2>📱 태블릿으로 QR을 찍어주세요</h2>
+    <p>스캔하면 그림 그리는 화면으로 바로 이동해요</p>
+    <img id="qrImg" src="" alt="QR code" />
+    <div id="drawUrlText"></div>
+    <button id="closeModalBtn">닫기</button>
+  </div>
+</div>
+
+<script src="/themes.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const sessionId = location.pathname.split('/').filter(Boolean).pop();
+  const socket = io();
+
+  const stage = document.getElementById('stage');
+  const loadingMsg = document.getElementById('loadingMsg');
+  const errorBox = document.getElementById('errorBox');
+  const addBtn = document.getElementById('addBtn');
+  const countEl = document.getElementById('count');
+  const titleText = document.getElementById('titleText');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const qrImg = document.getElementById('qrImg');
+  const drawUrlText = document.getElementById('drawUrlText');
+
+  const MAX_ITEMS = 35;
+  const MAX_DIM = 220;
+  const MIN_DIM = 90;
+  const items = [];
+  let theme = 'ocean';
+
+  function rand(min, max) { return Math.random() * (max - min) + min; }
+
+  // ---- 세션 정보 불러오기 ----
+  let sessionInfo = null;
+  fetch(`/api/session/${sessionId}`)
+    .then((r) => { if (!r.ok) throw new Error('not_found'); return r.json(); })
+    .then((data) => {
+      sessionInfo = data;
+      theme = data.theme;
+      init();
+    })
+    .catch(() => {
+      loadingMsg.style.display = 'none';
+      errorBox.style.display = 'flex';
+    });
+
+  function init() {
+    loadingMsg.style.display = 'none';
+    stage.style.display = 'block';
+    addBtn.style.display = 'block';
+
+    const t = THEMES[theme] || THEMES.ocean;
+    stage.style.background = t.bgGradient;
+    titleText.textContent = sessionInfo.title || '';
+
+    createDecorations(theme);
+
+    socket.emit('joinSession', { sessionId, role: 'display' });
+    requestAnimationFrame(tick);
+  }
+
+  // ---- 배경 장식 (테마별) ----
+  function createDecorations(theme) {
+    if (theme === 'space') {
+      for (let i = 0; i < 70; i++) {
+        const s = document.createElement('div');
+        s.className = 'deco';
+        const size = rand(1, 3);
+        s.style.width = size + 'px';
+        s.style.height = size + 'px';
+        s.style.left = rand(0, 100) + '%';
+        s.style.top = rand(0, 100) + '%';
+        s.style.background = '#fff';
+        s.style.borderRadius = '50%';
+        s.style.opacity = rand(0.2, 0.9);
+        s.style.animation = `twinkle ${rand(2, 4)}s ease-in-out ${rand(0, 3)}s infinite`;
+        stage.appendChild(s);
+      }
+      injectKeyframes('@keyframes twinkle {0%,100%{opacity:.15}50%{opacity:.9}}');
+    } else if (theme === 'ocean') {
+      for (let i = 0; i < 18; i++) {
+        const b = document.createElement('div');
+        b.className = 'deco';
+        const size = rand(8, 22);
+        b.style.width = size + 'px';
+        b.style.height = size + 'px';
+        b.style.left = rand(0, 100) + '%';
+        b.style.bottom = '-30px';
+        b.style.background = 'rgba(255,255,255,0.35)';
+        b.style.borderRadius = '50%';
+        b.style.animation = `bubbleUp ${rand(6, 14)}s linear ${rand(0, 8)}s infinite`;
+        stage.appendChild(b);
+      }
+      injectKeyframes('@keyframes bubbleUp {0%{transform:translateY(0);opacity:.8}100%{transform:translateY(-110vh);opacity:0}}');
+    } else if (theme === 'sky') {
+      for (let i = 0; i < 8; i++) {
+        const c = document.createElement('div');
+        c.className = 'deco';
+        const w = rand(80, 180);
+        c.style.width = w + 'px';
+        c.style.height = w * 0.4 + 'px';
+        c.style.top = rand(5, 70) + '%';
+        c.style.left = -w + 'px';
+        c.style.background = 'rgba(255,255,255,0.7)';
+        c.style.borderRadius = '999px';
+        c.style.filter = 'blur(1px)';
+        c.style.animation = `driftRight ${rand(30, 60)}s linear ${rand(0, 20)}s infinite`;
+        stage.appendChild(c);
+      }
+      injectKeyframes('@keyframes driftRight {0%{transform:translateX(0)}100%{transform:translateX(120vw)}}');
+    } else if (theme === 'forest') {
+      for (let i = 0; i < 20; i++) {
+        const l = document.createElement('div');
+        l.className = 'deco';
+        l.textContent = ['🍃', '🍂', '🌿'][Math.floor(rand(0, 3))];
+        l.style.fontSize = rand(14, 26) + 'px';
+        l.style.left = rand(0, 100) + '%';
+        l.style.top = '-30px';
+        l.style.animation = `leafFall ${rand(8, 16)}s linear ${rand(0, 10)}s infinite`;
+        stage.appendChild(l);
+      }
+      injectKeyframes('@keyframes leafFall {0%{transform:translateY(0) rotate(0deg);opacity:.9}100%{transform:translateY(115vh) rotate(360deg);opacity:.5}}');
+    }
+  }
+
+  function injectKeyframes(rule) {
+    const styleEl = document.createElement('style');
+    styleEl.textContent = rule;
+    document.head.appendChild(styleEl);
+  }
+
+  // ---- 그림 추가 ----
+  function addDrawing(data) {
+    const img = new Image();
+    img.onload = () => {
+      const stageW = stage.clientWidth;
+      const stageH = stage.clientHeight;
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      const scale = Math.min(MAX_DIM / Math.max(w, h), 1);
+      w = Math.max(MIN_DIM, w * scale);
+      h = Math.max(MIN_DIM, h * (w / img.naturalWidth));
+      if (h > MAX_DIM) { const s2 = MAX_DIM / h; w *= s2; h *= s2; }
+
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.style.width = w + 'px';
+      el.style.height = h + 'px';
+      el.appendChild(img);
+      img.style.width = '100%';
+      img.style.height = '100%';
+
+      if (data.name) {
+        const label = document.createElement('div');
+        label.className = 'label';
+        label.textContent = data.name;
+        el.appendChild(label);
+      }
+      stage.appendChild(el);
+
+      const x = rand(0, Math.max(0, stageW - w));
+      const y = rand(0, Math.max(0, stageH - h));
+      const speed = rand(35, 75);
+      const angle = rand(0, Math.PI * 2);
+
+      const item = {
+        el, w, h, x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        bob: rand(0, Math.PI * 2),
+        rotSpeed: rand(-6, 6)
+      };
+      items.push(item);
+      requestAnimationFrame(() => el.classList.add('show'));
+
+      while (items.length > MAX_ITEMS) {
+        const old = items.shift();
+        old.el.classList.remove('show');
+        setTimeout(() => old.el.remove(), 700);
+      }
+      updateCount();
+    };
+    img.src = data.image;
+  }
+
+  function updateCount() {
+    countEl.textContent = items.length > 0 ? `그림 ${items.length}개가 놀고 있어요` : '';
+  }
+
+  // ---- 물리 애니메이션 (테마별로 살짝 다른 느낌) ----
+  let lastTime = performance.now();
+  function tick(now) {
+    const dt = Math.min(0.05, (now - lastTime) / 1000);
+    lastTime = now;
+    const stageW = stage.clientWidth;
+    const stageH = stage.clientHeight;
+
+    for (const item of items) {
+      item.x += item.vx * dt;
+      item.bob += dt;
+
+      let yDrift = item.vy * dt;
+      if (theme === 'ocean') {
+        // 물고기처럼: 좌우 위주로 움직이고 위아래로 살짝 헤엄치듯 흔들림
+        yDrift += Math.sin(item.bob * 2) * 8 * dt;
+      } else if (theme === 'sky') {
+        // 풍선처럼: 천천히 위로 뜨는 느낌 + 좌우 흔들림
+        yDrift -= 6 * dt;
+        item.x += Math.sin(item.bob) * 6 * dt;
+      }
+      item.y += yDrift;
+
+      if (item.x <= 0) { item.x = 0; item.vx = Math.abs(item.vx); }
+      if (item.x + item.w >= stageW) { item.x = stageW - item.w; item.vx = -Math.abs(item.vx); }
+      if (item.y <= 0) { item.y = 0; item.vy = Math.abs(item.vy); }
+      if (item.y + item.h >= stageH) { item.y = stageH - item.h; item.vy = -Math.abs(item.vy); }
+
+      const wobble = Math.sin(item.bob * (item.rotSpeed / 3 || 1)) * 6;
+      item.el.style.transform = `translate(${item.x}px, ${item.y}px) rotate(${wobble}deg)`;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  socket.on('newDrawing', (data) => addDrawing(data));
+  socket.on('sessionEnded', () => {
+    window.location.href = '/';
+  });
+
+  // ---- QR 모달 ----
+  addBtn.addEventListener('click', () => {
+    if (sessionInfo) {
+      qrImg.src = sessionInfo.qrDataUrl;
+      drawUrlText.textContent = sessionInfo.drawUrl;
+    }
+    modalOverlay.classList.add('show');
+  });
+  document.getElementById('closeModalBtn').addEventListener('click', () => {
+    modalOverlay.classList.remove('show');
+  });
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) modalOverlay.classList.remove('show');
+  });
+
+  // ---- 나가기 ----
+  document.getElementById('exitBtn').addEventListener('click', () => {
+    if (!confirm('놀이터를 종료하고 그림을 모두 지울까요?')) return;
+    fetch(`/api/session/${sessionId}/end`, { method: 'POST' }).finally(() => {
+      window.location.href = '/';
+    });
+  });
+</script>
+</body>
+</html>
