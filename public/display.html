@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>그림 놀이터 - 큰 화면</title>
+<title>Drawing Playground - Big Screen</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; }
   #stage { position: relative; width: 100%; height: 100%; overflow: hidden; transition: background 0.6s; }
 
   #topBar {
@@ -23,13 +23,13 @@
     text-shadow: 0 2px 8px rgba(0,0,0,0.35);
     pointer-events: none;
   }
-  #exitBtn {
-    pointer-events: auto;
+  #topRightControls { display: flex; gap: 8px; pointer-events: auto; }
+  #topRightControls button {
     border: none; background: rgba(0,0,0,0.35); color: #fff;
-    padding: 10px 18px; border-radius: 999px; font-size: 14px; font-weight: 700;
+    padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 700;
     cursor: pointer; backdrop-filter: blur(4px);
   }
-  #exitBtn:hover { background: rgba(0,0,0,0.5); }
+  #topRightControls button:hover { background: rgba(0,0,0,0.5); }
 
   .item {
     position: absolute; top: 0; left: 0; will-change: transform;
@@ -43,6 +43,11 @@
     color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 700;
     text-shadow: 0 1px 3px rgba(0,0,0,0.6); white-space: nowrap;
   }
+  @keyframes sparkleGlow {
+    0%, 100% { filter: drop-shadow(0 6px 14px rgba(0,0,0,0.3)) drop-shadow(0 0 0 rgba(255,215,0,0)); }
+    50% { filter: drop-shadow(0 6px 14px rgba(0,0,0,0.3)) drop-shadow(0 0 34px rgba(255,215,0,0.95)); }
+  }
+  .item.sparkle { animation: sparkleGlow 0.55s ease-in-out 4; }
 
   .deco { position: absolute; pointer-events: none; }
 
@@ -55,9 +60,57 @@
   #addBtn:active { transform: translateX(-50%) scale(0.96); }
 
   #count {
-    position: fixed; bottom: 14px; right: 20px; z-index: 20;
+    position: fixed; bottom: 14px; left: 20px; z-index: 20;
     color: rgba(255,255,255,0.5); font-size: 13px;
   }
+
+  /* 연결 상태 배너 */
+  #connStatus {
+    position: fixed; top: 0; left: 0; right: 0; text-align: center;
+    padding: 8px; font-size: 13px; font-weight: 700; color: #fff;
+    transform: translateY(-100%); transition: transform 0.25s; z-index: 60;
+  }
+  #connStatus.show { transform: translateY(0); }
+  #connStatus.warn { background: #d32f2f; }
+  #connStatus.ok { background: #2e7d32; }
+
+  /* 제출 로그 패널 */
+  #logTab {
+    position: fixed; top: 50%; right: 0; transform: translateY(-50%);
+    z-index: 40; border: none; background: rgba(0,0,0,0.4); color: #fff;
+    padding: 14px 8px; border-radius: 12px 0 0 12px; cursor: pointer;
+    font-size: 13px; font-weight: 700; writing-mode: vertical-rl; text-orientation: mixed;
+  }
+  #logPanel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 82vw);
+    background: rgba(20,20,26,0.94); color: #fff; z-index: 39;
+    transform: translateX(100%); transition: transform 0.3s ease;
+    display: flex; flex-direction: column; backdrop-filter: blur(6px);
+  }
+  #logPanel.open { transform: translateX(0); }
+  #logPanel.open ~ #logTab, #logTab.open { transform: translateY(-50%); }
+  #logHeader {
+    padding: 18px 16px 10px; font-weight: 800; font-size: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.15); flex-shrink: 0;
+  }
+  #logList { flex: 1; overflow-y: auto; padding: 8px 10px; }
+  .logEntry {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 8px; border-radius: 10px; margin-bottom: 4px;
+  }
+  .logEntry:hover { background: rgba(255,255,255,0.06); }
+  .logEntry.deleted { opacity: 0.4; }
+  .logInfo { min-width: 0; }
+  .logName { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .logTime { font-size: 12px; color: rgba(255,255,255,0.55); }
+  .logActions { display: flex; gap: 4px; flex-shrink: 0; }
+  .logBtn {
+    border: none; background: rgba(255,255,255,0.1); color: #fff;
+    width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .logBtn:hover:not(:disabled) { background: rgba(255,255,255,0.22); }
+  .logBtn:disabled { opacity: 0.3; cursor: default; }
+  #logEmpty { padding: 20px 8px; color: rgba(255,255,255,0.5); font-size: 13px; text-align: center; }
 
   /* QR 모달 */
   #modalOverlay {
@@ -75,10 +128,13 @@
   #drawUrlText {
     margin-top: 14px; font-size: 13px; color: #999; word-break: break-all;
   }
-  #closeModalBtn {
-    margin-top: 20px; border: none; background: #eee; color: #333;
+  #modalButtons { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+  #copyLinkBtn, #closeModalBtn {
+    border: none; color: #333;
     padding: 10px 24px; border-radius: 999px; font-weight: 700; cursor: pointer;
   }
+  #copyLinkBtn { background: #eef0ff; color: #3f3fbf; }
+  #closeModalBtn { background: #eee; }
 
   #loadingMsg, #errorBox {
     position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -92,29 +148,43 @@
 </style>
 </head>
 <body>
-<div id="loadingMsg">불러오는 중...</div>
+<div id="connStatus"></div>
+<div id="loadingMsg">Loading...</div>
 <div id="errorBox">
-  <div>이 놀이터를 찾을 수 없어요. (종료되었거나 잘못된 주소예요)</div>
-  <a href="/">처음 화면으로</a>
+  <div>This playground couldn't be found. (It may have ended, or the address is wrong.)</div>
+  <a href="/">Back to Home</a>
 </div>
 
 <div id="stage" style="display:none;">
   <div id="topBar">
     <div id="titleText"></div>
-    <button id="exitBtn">나가기 ✕</button>
+    <div id="topRightControls">
+      <button id="muteBtn" title="Toggle sound"></button>
+      <button id="fullscreenBtn" title="Fullscreen">⛶</button>
+      <button id="exitBtn">Exit ✕</button>
+    </div>
   </div>
   <div id="count"></div>
 </div>
 
-<button id="addBtn" style="display:none;">➕ 그림 추가하기</button>
+<button id="addBtn" style="display:none;">➕ Add a Drawing</button>
+
+<button id="logTab">Log (<span id="logCount">0</span>)</button>
+<div id="logPanel">
+  <div id="logHeader">Submissions</div>
+  <div id="logList"></div>
+</div>
 
 <div id="modalOverlay">
   <div id="modalBox">
-    <h2>📱 태블릿으로 QR을 찍어주세요</h2>
-    <p>스캔하면 그림 그리는 화면으로 바로 이동해요</p>
+    <h2>📱 Scan the QR with a tablet</h2>
+    <p>Scanning takes you straight to the drawing screen</p>
     <img id="qrImg" src="" alt="QR code" />
     <div id="drawUrlText"></div>
-    <button id="closeModalBtn">닫기</button>
+    <div id="modalButtons">
+      <button id="copyLinkBtn">Copy Link</button>
+      <button id="closeModalBtn">Close</button>
+    </div>
   </div>
 </div>
 
@@ -133,14 +203,75 @@
   const modalOverlay = document.getElementById('modalOverlay');
   const qrImg = document.getElementById('qrImg');
   const drawUrlText = document.getElementById('drawUrlText');
+  const connStatus = document.getElementById('connStatus');
+  const logTab = document.getElementById('logTab');
+  const logPanel = document.getElementById('logPanel');
+  const logList = document.getElementById('logList');
+  const logCountEl = document.getElementById('logCount');
+  const muteBtn = document.getElementById('muteBtn');
 
   const MAX_ITEMS = 35;
   const MAX_DIM = 220;
   const MIN_DIM = 90;
+  const LOG_LIMIT = 300;
   const items = [];
+  const logEntries = [];
   let theme = 'ocean';
 
   function rand(min, max) { return Math.random() * (max - min) + min; }
+
+  // ---- 연결 상태 표시 ----
+  let everConnected = false;
+  socket.on('connect', () => {
+    if (everConnected) {
+      connStatus.textContent = 'Reconnected ✓';
+      connStatus.className = 'show ok';
+      setTimeout(() => connStatus.classList.remove('show'), 2000);
+    }
+    everConnected = true;
+  });
+  socket.on('disconnect', () => {
+    connStatus.textContent = 'Connection lost — retrying…';
+    connStatus.className = 'show warn';
+  });
+
+  // ---- 효과음 (외부 파일 없이 WebAudio로 생성) ----
+  let audioCtx = null;
+  let muted = localStorage.getItem('drawingWallMuted') === '1';
+  function updateMuteBtn() { muteBtn.textContent = muted ? '🔇' : '🔊'; }
+  updateMuteBtn();
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    localStorage.setItem('drawingWallMuted', muted ? '1' : '0');
+    updateMuteBtn();
+  });
+  document.addEventListener('click', function unlockAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+    } else if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }, { once: true });
+
+  function playChime() {
+    if (muted) return;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const t0 = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(880, t0);
+      o.frequency.exponentialRampToValueAtTime(1320, t0 + 0.12);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.15, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4);
+      o.connect(g);
+      g.connect(audioCtx.destination);
+      o.start(t0);
+      o.stop(t0 + 0.4);
+    } catch (e) {}
+  }
 
   // ---- 세션 정보 불러오기 ----
   let sessionInfo = null;
@@ -256,6 +387,7 @@
 
       const el = document.createElement('div');
       el.className = 'item';
+      el.dataset.id = data.id;
       el.style.width = w + 'px';
       el.style.height = h + 'px';
       el.appendChild(img);
@@ -276,7 +408,7 @@
       const angle = rand(0, Math.PI * 2);
 
       const item = {
-        el, w, h, x, y,
+        id: data.id, el, w, h, x, y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         bob: rand(0, Math.PI * 2),
@@ -296,7 +428,99 @@
   }
 
   function updateCount() {
-    countEl.textContent = items.length > 0 ? `그림 ${items.length}개가 놀고 있어요` : '';
+    countEl.textContent = items.length > 0 ? `${items.length} drawings playing` : '';
+  }
+
+  // ---- 제출 로그 ----
+  function formatTime(ts) {
+    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function renderLogEntry(entry) {
+    const row = document.createElement('div');
+    row.className = 'logEntry' + (entry.deleted ? ' deleted' : '');
+    row.dataset.id = entry.id;
+
+    const info = document.createElement('div');
+    info.className = 'logInfo';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'logName';
+    nameEl.textContent = entry.name || 'Anonymous';
+    const timeEl = document.createElement('div');
+    timeEl.className = 'logTime';
+    timeEl.textContent = formatTime(entry.createdAt);
+    info.appendChild(nameEl);
+    info.appendChild(timeEl);
+
+    const actions = document.createElement('div');
+    actions.className = 'logActions';
+    const sparkleBtn = document.createElement('button');
+    sparkleBtn.className = 'logBtn';
+    sparkleBtn.title = 'Highlight';
+    sparkleBtn.textContent = '✨';
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'logBtn';
+    deleteBtn.title = 'Delete';
+    deleteBtn.textContent = '🗑️';
+
+    if (entry.deleted) {
+      sparkleBtn.disabled = true;
+      deleteBtn.disabled = true;
+    } else {
+      deleteBtn.addEventListener('click', () => socket.emit('adminDeleteDrawing', { drawingId: entry.id }));
+      sparkleBtn.addEventListener('click', () => socket.emit('adminHighlightDrawing', { drawingId: entry.id }));
+    }
+    actions.appendChild(sparkleBtn);
+    actions.appendChild(deleteBtn);
+
+    row.appendChild(info);
+    row.appendChild(actions);
+    return row;
+  }
+
+  function addLogEntry(data) {
+    const entry = { id: data.id, name: data.name, createdAt: data.createdAt || Date.now(), deleted: false };
+    logEntries.unshift(entry);
+    if (logEntries.length > LOG_LIMIT) logEntries.pop();
+    logList.insertBefore(renderLogEntry(entry), logList.firstChild);
+    while (logList.children.length > LOG_LIMIT) logList.removeChild(logList.lastChild);
+    logCountEl.textContent = logEntries.length;
+  }
+
+  function markLogEntryDeleted(id) {
+    const entry = logEntries.find((e) => e.id === id);
+    if (entry) entry.deleted = true;
+    const row = logList.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    if (row) {
+      row.classList.add('deleted');
+      row.querySelectorAll('button').forEach((b) => (b.disabled = true));
+    }
+  }
+
+  logTab.addEventListener('click', () => logPanel.classList.toggle('open'));
+
+  // ---- 반짝임 강조 파티클 ----
+  function spawnSparkles(item) {
+    for (let i = 0; i < 6; i++) {
+      const s = document.createElement('div');
+      s.textContent = '✨';
+      s.style.position = 'absolute';
+      s.style.left = (item.x + item.w / 2) + 'px';
+      s.style.top = (item.y + item.h / 2) + 'px';
+      s.style.fontSize = (16 + Math.random() * 14) + 'px';
+      s.style.pointerEvents = 'none';
+      s.style.zIndex = '15';
+      s.style.transition = 'transform 0.9s ease-out, opacity 0.9s ease-out';
+      s.style.opacity = '1';
+      stage.appendChild(s);
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 40 + Math.random() * 50;
+      requestAnimationFrame(() => {
+        s.style.transform = `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist}px)`;
+        s.style.opacity = '0';
+      });
+      setTimeout(() => s.remove(), 950);
+    }
   }
 
   // ---- 물리 애니메이션 (테마별로 살짝 다른 느낌) ----
@@ -333,9 +557,43 @@
     requestAnimationFrame(tick);
   }
 
-  socket.on('newDrawing', (data) => addDrawing(data));
+  socket.on('newDrawing', (data) => {
+    addLogEntry(data);
+    addDrawing(data);
+    playChime();
+  });
+
+  socket.on('drawingDeleted', ({ id } = {}) => {
+    const idx = items.findIndex((it) => it.id === id);
+    if (idx !== -1) {
+      const it = items[idx];
+      it.el.classList.remove('show');
+      setTimeout(() => it.el.remove(), 700);
+      items.splice(idx, 1);
+      updateCount();
+    }
+    markLogEntryDeleted(id);
+  });
+
+  socket.on('drawingHighlighted', ({ id } = {}) => {
+    const item = items.find((it) => it.id === id);
+    if (!item) return;
+    item.el.classList.add('sparkle');
+    spawnSparkles(item);
+    setTimeout(() => item.el.classList.remove('sparkle'), 2200);
+  });
+
   socket.on('sessionEnded', () => {
     window.location.href = '/';
+  });
+
+  // ---- 전체화면 ----
+  document.getElementById('fullscreenBtn').addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen();
+    }
   });
 
   // ---- QR 모달 ----
@@ -349,13 +607,25 @@
   document.getElementById('closeModalBtn').addEventListener('click', () => {
     modalOverlay.classList.remove('show');
   });
+  document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+    if (!sessionInfo) return;
+    const btn = document.getElementById('copyLinkBtn');
+    const original = btn.textContent;
+    try {
+      await navigator.clipboard.writeText(sessionInfo.drawUrl);
+      btn.textContent = 'Copied! ✓';
+    } catch (e) {
+      btn.textContent = 'Copy failed';
+    }
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  });
   modalOverlay.addEventListener('click', (e) => {
     if (e.target === modalOverlay) modalOverlay.classList.remove('show');
   });
 
   // ---- 나가기 ----
   document.getElementById('exitBtn').addEventListener('click', () => {
-    if (!confirm('놀이터를 종료하고 그림을 모두 지울까요?')) return;
+    if (!confirm('End the playground and clear all drawings?')) return;
     fetch(`/api/session/${sessionId}/end`, { method: 'POST' }).finally(() => {
       window.location.href = '/';
     });

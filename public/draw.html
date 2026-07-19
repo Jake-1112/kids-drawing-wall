@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>그림 그리기</title>
+<title>Draw</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
     overflow: hidden; background: #fafafa;
-    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
     touch-action: none;
   }
   #app { display: none; flex-direction: column; height: 100%; }
@@ -35,10 +35,18 @@
   .sizeBtn { width: 38px; height: 38px; border-radius: 50%; background: #444; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
   .sizeBtn.active { border-color: #fff; }
   .sizeBtn span { background: #fff; border-radius: 50%; display: block; }
-  .spacer { flex: 1 1 auto; min-width: 4px; }
-  .actionBtn { flex-shrink: 0; border: none; border-radius: 10px; padding: 10px 16px; font-size: 15px; font-weight: 700; cursor: pointer; }
-  #clearBtn { background: #555; color: #fff; }
-  #sendBtn { background: #ff5252; color: #fff; font-size: 17px; padding: 10px 22px; }
+  .iconBtn {
+    flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; border: none;
+    background: #444; color: #fff; font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  #actionBar { flex-shrink: 0; display: flex; align-items: stretch; gap: 8px; padding: 10px; background: #1a1a1a; }
+  .actionBtn { border: none; border-radius: 10px; padding: 10px 14px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .actionBtn:disabled { opacity: 0.35; cursor: default; }
+  #undoBtn { background: #555; color: #fff; flex: 0 0 auto; }
+  #clearBtn { background: #555; color: #fff; flex: 1 1 auto; }
+  #sendBtn { background: #ff5252; color: #fff; font-size: 17px; padding: 10px 18px; flex: 1.4 1 auto; }
 
   #nameBar { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #333; }
   #nameInput { flex: 1; border: none; border-radius: 8px; padding: 8px 10px; font-size: 15px; outline: none; }
@@ -52,6 +60,15 @@
   }
   #toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
+  #connStatus {
+    position: fixed; top: 0; left: 0; right: 0; text-align: center;
+    padding: 8px; font-size: 13px; font-weight: 700; color: #fff;
+    transform: translateY(-100%); transition: transform 0.25s; z-index: 30;
+  }
+  #connStatus.show { transform: translateY(0); }
+  #connStatus.warn { background: #d32f2f; }
+  #connStatus.ok { background: #2e7d32; }
+
   #loadingMsg, #errorBox {
     position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     flex-direction: column; gap: 14px; color: #fff; background: #111; text-align: center; padding: 20px;
@@ -61,18 +78,23 @@
 </style>
 </head>
 <body>
-<div id="loadingMsg">불러오는 중...</div>
+<div id="connStatus"></div>
+<div id="loadingMsg">Loading...</div>
 <div id="errorBox">
   <div class="big">🙈</div>
-  <div>이 놀이터는 종료되었거나 존재하지 않아요.</div>
-  <div style="font-size:13px;color:#aaa;">메인 화면에서 새로 QR코드를 받아주세요.</div>
+  <div>This playground has ended or doesn't exist.</div>
+  <div style="font-size:13px;color:#aaa;">Ask the host for a new QR code.</div>
 </div>
 
 <div id="app">
   <div id="themeBar"><span id="themeLabel"></span></div>
   <div id="nameBar">
-    <label for="nameInput">이름(선택)</label>
-    <input id="nameInput" type="text" maxlength="10" placeholder="누구 그림이에요?" />
+    <label for="nameInput">Name (optional)</label>
+    <input id="nameInput" type="text" maxlength="10" placeholder="Whose drawing is this?" />
+    <button id="cameraBtn" class="iconBtn" title="Take a photo">📷</button>
+    <button id="galleryBtn" class="iconBtn" title="Upload a photo">🖼️</button>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" />
+    <input type="file" id="galleryInput" accept="image/*" style="display:none" />
   </div>
 
   <div id="canvasWrap">
@@ -92,14 +114,16 @@
     <div class="sizeBtn" data-size="6"><span style="width:6px;height:6px;"></span></div>
     <div class="sizeBtn active" data-size="12"><span style="width:12px;height:12px;"></span></div>
     <div class="sizeBtn" data-size="22"><span style="width:20px;height:20px;"></span></div>
+  </div>
 
-    <div class="spacer"></div>
-    <button id="clearBtn" class="actionBtn">지우기</button>
-    <button id="sendBtn" class="actionBtn">화면으로 보내기 🚀</button>
+  <div id="actionBar">
+    <button id="undoBtn" class="actionBtn" disabled>↩ Undo</button>
+    <button id="clearBtn" class="actionBtn">Clear</button>
+    <button id="sendBtn" class="actionBtn">Send to Screen 🚀</button>
   </div>
 </div>
 
-<div id="toast">화면으로 날아갔어요! 🎉</div>
+<div id="toast">Sent to the screen! 🎉</div>
 
 <script src="/themes.js"></script>
 <script src="/socket.io/socket.io.js"></script>
@@ -112,13 +136,28 @@
   const errorBox = document.getElementById('errorBox');
   const themeBar = document.getElementById('themeBar');
   const themeLabel = document.getElementById('themeLabel');
+  const connStatus = document.getElementById('connStatus');
+
+  let everConnected = false;
+  socket.on('connect', () => {
+    if (everConnected) {
+      connStatus.textContent = 'Reconnected ✓';
+      connStatus.className = 'show ok';
+      setTimeout(() => connStatus.classList.remove('show'), 2000);
+    }
+    everConnected = true;
+  });
+  socket.on('disconnect', () => {
+    connStatus.textContent = 'Connection lost — retrying…';
+    connStatus.className = 'show warn';
+  });
 
   fetch(`/api/session/${sessionId}`)
     .then((r) => { if (!r.ok) throw new Error('not_found'); return r.json(); })
     .then((data) => {
       const t = THEMES[data.theme] || THEMES.ocean;
       themeBar.style.background = t.accent;
-      themeLabel.textContent = `${t.emoji} ${data.title ? data.title + ' · ' : ''}${t.label} 놀이터에 그림을 보내요`;
+      themeLabel.textContent = `${t.emoji} Send a drawing to the ${data.title ? data.title + ' · ' : ''}${t.label} playground`;
       loadingMsg.style.display = 'none';
       appEl.classList.add('ready');
       socket.emit('joinSession', { sessionId, role: 'draw' });
@@ -136,8 +175,8 @@
 
   socket.on('drawingRejected', ({ reason } = {}) => {
     const msg = reason === 'too_large'
-      ? '그림이 너무 커요! 조금 더 작게 그려주세요 🙏'
-      : '너무 빨리 보내고 있어요, 잠시 후 다시 시도해주세요 ⏳';
+      ? 'Your drawing is too large! Please make it a bit smaller 🙏'
+      : "You're sending too fast, please wait a moment ⏳";
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
@@ -155,6 +194,37 @@
     let lastX = 0, lastY = 0;
     let hasDrawn = false;
 
+    const UNDO_LIMIT = 12;
+    let undoStack = [];
+    const undoBtn = document.getElementById('undoBtn');
+
+    function updateUndoButton() {
+      undoBtn.disabled = undoStack.length === 0;
+    }
+
+    function saveUndoState() {
+      try {
+        undoStack.push(canvas.toDataURL('image/png'));
+        if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+        updateUndoButton();
+      } catch (e) {}
+    }
+
+    function undo() {
+      if (undoStack.length === 0) return;
+      const prev = undoStack.pop();
+      const img = new Image();
+      img.onload = () => {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        hasDrawn = true;
+        updateUndoButton();
+      };
+      img.src = prev;
+    }
+    undoBtn.addEventListener('click', undo);
+
     function resizeCanvas() {
       const rect = wrap.getBoundingClientRect();
       const prev = document.createElement('canvas');
@@ -168,9 +238,16 @@
       ctx.drawImage(prev, 0, 0);
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
+
+      // 캔버스 크기가 바뀌면 이전 undo 스냅샷 크기가 안 맞을 수 있어 초기화
+      undoStack = [];
+      updateUndoButton();
     }
     window.addEventListener('resize', resizeCanvas);
+    // 백그라운드 탭에서 로딩된 경우 레이아웃 계산이 0으로 잡힐 수 있어, 화면에 보이게 되는 시점에 다시 계산
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) resizeCanvas(); });
     resizeCanvas();
+    requestAnimationFrame(resizeCanvas);
 
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
@@ -182,6 +259,7 @@
 
     function startDraw(e) {
       e.preventDefault();
+      saveUndoState();
       drawing = true;
       hasDrawn = true;
       const p = getPos(e);
@@ -232,9 +310,45 @@
     });
 
     document.getElementById('clearBtn').addEventListener('click', () => {
+      saveUndoState();
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       hasDrawn = false;
+    });
+
+    function loadPhotoFile(file) {
+      if (!file) return;
+      saveUndoState();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          const x = (canvas.width - w) / 2;
+          const y = (canvas.height - h) / 2;
+          ctx.drawImage(img, x, y, w, h);
+          hasDrawn = true;
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    const cameraInput = document.getElementById('cameraInput');
+    const galleryInput = document.getElementById('galleryInput');
+    document.getElementById('cameraBtn').addEventListener('click', () => cameraInput.click());
+    document.getElementById('galleryBtn').addEventListener('click', () => galleryInput.click());
+    cameraInput.addEventListener('change', (e) => {
+      loadPhotoFile(e.target.files[0]);
+      e.target.value = '';
+    });
+    galleryInput.addEventListener('change', (e) => {
+      loadPhotoFile(e.target.files[0]);
+      e.target.value = '';
     });
 
     function extractDrawing() {
@@ -291,13 +405,14 @@
     }
 
     document.getElementById('sendBtn').addEventListener('click', () => {
-      if (!hasDrawn) { showToast('먼저 그림을 그려주세요! ✏️'); return; }
+      if (!hasDrawn) { showToast('Please draw something first! ✏️'); return; }
+      saveUndoState();
       const dataUrl = extractDrawing();
-      if (!dataUrl) { showToast('먼저 그림을 그려주세요! ✏️'); return; }
+      if (!dataUrl) { showToast('Please draw something first! ✏️'); return; }
       const name = document.getElementById('nameInput').value.trim();
       socket.emit('newDrawing', { image: dataUrl, name });
       hasDrawn = false;
-      showToast('화면으로 날아갔어요! 🎉');
+      showToast('Sent to the screen! 🎉');
     });
   }
 </script>

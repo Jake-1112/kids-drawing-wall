@@ -175,9 +175,26 @@ io.on('connection', (socket) => {
       return;
     }
     io.to(sessionId).emit('newDrawing', {
+      id: genId(),
+      createdAt: Date.now(),
       image: data.image,
       name: typeof data.name === 'string' ? data.name.slice(0, 20) : ''
     });
+  });
+
+  // 관리자(큰 화면) 전용: 특정 그림 삭제/반짝임 강조 — role이 'display'인 소켓만 허용
+  socket.on('adminDeleteDrawing', ({ drawingId } = {}) => {
+    const sessionId = socket.data.sessionId;
+    if (!sessionId || socket.data.role !== 'display') return;
+    if (typeof drawingId !== 'string') return;
+    io.to(sessionId).emit('drawingDeleted', { id: drawingId });
+  });
+
+  socket.on('adminHighlightDrawing', ({ drawingId } = {}) => {
+    const sessionId = socket.data.sessionId;
+    if (!sessionId || socket.data.role !== 'display') return;
+    if (typeof drawingId !== 'string') return;
+    io.to(sessionId).emit('drawingHighlighted', { id: drawingId });
   });
 });
 

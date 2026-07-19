@@ -1,22 +1,24 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>그림 놀이터 - 테마 선택</title>
+<title>Drawing Playground - Choose a Theme</title>
+<meta name="description" content="A free, real-time collaborative drawing wall. Pick a theme, scan a QR code from any phone or tablet, and watch drawings come to life on the big screen." />
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5307258760592063" crossorigin="anonymous"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     width: 100%; height: 100%;
-    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
     background: linear-gradient(160deg, #fdf6ec 0%, #eef3fb 100%);
-    display: flex; align-items: center; justify-content: center;
   }
+  body { display: flex; flex-direction: column; align-items: center; min-height: 100%; padding: 24px 0; }
   #card {
     width: min(720px, 92vw);
     padding: 40px clamp(20px, 5vw, 48px);
     text-align: center;
+    margin: auto 0;
   }
   h1 { font-size: clamp(26px, 4vw, 36px); color: #2b2b3a; margin-bottom: 6px; }
   p.sub { color: #777; margin-bottom: 28px; font-size: 15px; }
@@ -72,19 +74,37 @@
   #startBtn:active.ready { transform: scale(0.97); }
 
   #errorMsg { color: #d32f2f; margin-top: 14px; font-size: 14px; min-height: 20px; }
+
+  #about {
+    width: min(720px, 92vw); margin-top: 8px; padding: 0 clamp(20px, 5vw, 48px) 8px;
+    text-align: center; color: #888; font-size: 13px; line-height: 1.6;
+  }
+  #footer {
+    margin-top: 18px; text-align: center; font-size: 12px; color: #aaa;
+  }
+  #footer a { color: #888; }
 </style>
 </head>
 <body>
 <div id="card">
-  <h1>🎨 그림 놀이터</h1>
-  <p class="sub">테마를 고르면, 아이들이 그린 그림이 큰 화면에서 살아 움직여요</p>
+  <h1>🎨 Drawing Playground</h1>
+  <p class="sub">Pick a theme, and drawings come to life on the big screen in real time</p>
 
-  <input id="titleInput" type="text" maxlength="40" placeholder="놀이터 제목 (선택, 예: 민준이의 생일파티 🎉)" />
+  <input id="titleInput" type="text" maxlength="40" placeholder="Playground title (optional, e.g. Emma's Birthday Party 🎉)" />
 
   <div id="themes"></div>
 
-  <button id="startBtn">시작하기 →</button>
+  <button id="startBtn">Start →</button>
   <div id="errorMsg"></div>
+</div>
+
+<div id="about">
+  Drawing Playground is a free real-time collaborative drawing wall for parties, classrooms, and events.
+  Pick a theme, share the QR code, and anyone nearby can draw on their phone or tablet — their drawing floats
+  onto the big screen instantly. No sign-up, no app install, and nothing is saved after the playground ends.
+</div>
+<div id="footer">
+  <a href="/privacy.html">Privacy Policy</a>
 </div>
 
 <script src="/themes.js"></script>
@@ -113,7 +133,7 @@
   startBtn.addEventListener('click', async () => {
     if (!selectedTheme) return;
     startBtn.disabled = true;
-    startBtn.textContent = '준비 중...';
+    startBtn.textContent = 'Starting...';
     try {
       const res = await fetch('/api/session', {
         method: 'POST',
@@ -127,9 +147,9 @@
       const data = await res.json();
       window.location.href = `/display/${data.id}`;
     } catch (e) {
-      errorMsg.textContent = '시작하지 못했어요. 서버 연결을 확인해주세요.';
+      errorMsg.textContent = "Couldn't start. Please check your connection and try again.";
       startBtn.disabled = false;
-      startBtn.textContent = '시작하기 →';
+      startBtn.textContent = 'Start →';
     }
   });
 </script>
