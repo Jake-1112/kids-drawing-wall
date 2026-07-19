@@ -53,6 +53,10 @@
   #nameBar label { color: #ccc; font-size: 13px; flex-shrink: 0; }
   #nameBar .iconBtn { flex-shrink: 0; }
 
+  #messageBar { flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #3a3a3a; overflow-x: auto; }
+  #messageInput { flex: 1 1 80px; min-width: 0; border: none; border-radius: 8px; padding: 8px 10px; font-size: 15px; outline: none; }
+  #messageBar label { color: #ccc; font-size: 13px; flex-shrink: 0; }
+
   #toast {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
     background: rgba(0,0,0,0.8); color: #fff; padding: 20px 30px; border-radius: 16px;
@@ -96,6 +100,10 @@
     <button id="galleryBtn" class="iconBtn" title="Upload a photo">🖼️</button>
     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" />
     <input type="file" id="galleryInput" accept="image/*" style="display:none" />
+  </div>
+  <div id="messageBar">
+    <label for="messageInput">Message</label>
+    <input id="messageInput" type="text" maxlength="80" placeholder="Say something! (optional, works without a drawing too)" />
   </div>
 
   <div id="canvasWrap">
@@ -408,13 +416,20 @@
     }
 
     document.getElementById('sendBtn').addEventListener('click', () => {
-      if (!hasDrawn) { showToast('Please draw something first! ✏️'); return; }
-      saveUndoState();
-      const dataUrl = extractDrawing();
-      if (!dataUrl) { showToast('Please draw something first! ✏️'); return; }
+      const messageInput = document.getElementById('messageInput');
+      const message = messageInput.value.trim();
+      if (!hasDrawn && !message) { showToast('Please draw or type something first! ✏️'); return; }
+
+      let dataUrl = null;
+      if (hasDrawn) {
+        saveUndoState();
+        dataUrl = extractDrawing();
+        if (!dataUrl && !message) { showToast('Please draw or type something first! ✏️'); return; }
+      }
       const name = document.getElementById('nameInput').value.trim();
-      socket.emit('newDrawing', { image: dataUrl, name });
+      socket.emit('newDrawing', { image: dataUrl, message, name });
       hasDrawn = false;
+      messageInput.value = '';
       showToast('Sent to the screen! 🎉');
     });
   }

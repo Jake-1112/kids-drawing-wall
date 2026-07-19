@@ -167,8 +167,10 @@ io.on('connection', (socket) => {
   socket.on('newDrawing', (data) => {
     const sessionId = socket.data.sessionId;
     const sessionData = sessionId && sessions.get(sessionId);
-    if (!sessionData) return;
-    if (!data || typeof data.image !== 'string') return;
+    if (!sessionData || !data) return;
+    const hasImage = typeof data.image === 'string' && data.image.length > 0;
+    const message = typeof data.message === 'string' ? data.message.trim().slice(0, 80) : '';
+    if (!hasImage && !message) return; // 그림도 텍스트도 없으면 무시
     if (sessionData.paused) {
       socket.emit('drawingRejected', { reason: 'paused' });
       return;
@@ -177,14 +179,15 @@ io.on('connection', (socket) => {
       socket.emit('drawingRejected', { reason: 'rate_limited' });
       return;
     }
-    if (data.image.length > MAX_DRAWING_BASE64_LENGTH) {
+    if (hasImage && data.image.length > MAX_DRAWING_BASE64_LENGTH) {
       socket.emit('drawingRejected', { reason: 'too_large' });
       return;
     }
     io.to(sessionId).emit('newDrawing', {
       id: genId(),
       createdAt: Date.now(),
-      image: data.image,
+      image: hasImage ? data.image : null,
+      message,
       name: typeof data.name === 'string' ? data.name.slice(0, 20) : ''
     });
   });
