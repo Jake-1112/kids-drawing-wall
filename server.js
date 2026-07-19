@@ -82,6 +82,7 @@ async function buildSessionPayload(id, sessionData) {
     id,
     theme: sessionData.theme,
     title: sessionData.title || '',
+    paused: !!sessionData.paused,
     drawUrl,
     qrDataUrl
   };
@@ -114,7 +115,8 @@ app.post('/api/session', async (req, res) => {
   const sessionData = {
     theme,
     title: typeof title === 'string' ? title.slice(0, 40) : '',
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    paused: false
   };
   sessions.set(id, sessionData);
   try {
@@ -164,8 +166,13 @@ io.on('connection', (socket) => {
 
   socket.on('newDrawing', (data) => {
     const sessionId = socket.data.sessionId;
-    if (!sessionId || !sessions.has(sessionId)) return;
+    const sessionData = sessionId && sessions.get(sessionId);
+    if (!sessionData) return;
     if (!data || typeof data.image !== 'string') return;
+    if (sessionData.paused) {
+      socket.emit('drawingRejected', { reason: 'paused' });
+      return;
+    }
     if (!drawingLimiter(socket.id)) {
       socket.emit('drawingRejected', { reason: 'rate_limited' });
       return;
@@ -195,6 +202,15 @@ io.on('connection', (socket) => {
     if (!sessionId || socket.data.role !== 'display') return;
     if (typeof drawingId !== 'string') return;
     io.to(sessionId).emit('drawingHighlighted', { id: drawingId });
+  });
+
+  // 관리자 전용: 새 그림 수신 일시정지/재개 (화면에 이미 떠 있는 그림은 그대로 유지)
+  socket.on('adminSetPaused', ({ paused } = {}) => {
+    const sessionId = socket.data.sessionId;
+    const sessionData = sessionId && sessions.get(sessionId);
+    if (!sessionData || socket.data.role !== 'display') return;
+    sessionData.paused = !!paused;
+    io.to(sessionId).emit('pausedStateChanged', { paused: sessionData.paused });
   });
 });
 

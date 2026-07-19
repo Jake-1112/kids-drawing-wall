@@ -111,6 +111,18 @@
   .logBtn:hover:not(:disabled) { background: rgba(255,255,255,0.22); }
   .logBtn:disabled { opacity: 0.3; cursor: default; }
   #logEmpty { padding: 20px 8px; color: rgba(255,255,255,0.5); font-size: 13px; text-align: center; }
+  #logFooter {
+    flex-shrink: 0; display: flex; gap: 8px; padding: 10px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+  }
+  #logFooter button {
+    flex: 1; border: none; border-radius: 10px; padding: 10px 8px;
+    font-size: 13px; font-weight: 700; cursor: pointer; color: #fff;
+  }
+  #pauseBtn { background: rgba(255,255,255,0.12); }
+  #pauseBtn.paused { background: #ffb300; color: #221; }
+  #clearAllBtn { background: rgba(255,82,82,0.25); }
+  #clearAllBtn:hover { background: rgba(255,82,82,0.4); }
 
   /* QR 모달 */
   #modalOverlay {
@@ -173,6 +185,10 @@
 <div id="logPanel">
   <div id="logHeader">Submissions</div>
   <div id="logList"></div>
+  <div id="logFooter">
+    <button id="pauseBtn">⏸ Pause</button>
+    <button id="clearAllBtn">🗑️ Clear All</button>
+  </div>
 </div>
 
 <div id="modalOverlay">
@@ -209,6 +225,8 @@
   const logList = document.getElementById('logList');
   const logCountEl = document.getElementById('logCount');
   const muteBtn = document.getElementById('muteBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
 
   const MAX_ITEMS = 35;
   const MAX_DIM = 220;
@@ -295,6 +313,7 @@
     const t = THEMES[theme] || THEMES.ocean;
     stage.style.background = t.bgGradient;
     titleText.textContent = sessionInfo.title || '';
+    updatePauseBtn(!!sessionInfo.paused);
 
     createDecorations(theme);
 
@@ -433,7 +452,9 @@
 
   // ---- 제출 로그 ----
   function formatTime(ts) {
-    return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const d = new Date(ts);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
   function renderLogEntry(entry) {
@@ -498,6 +519,24 @@
   }
 
   logTab.addEventListener('click', () => logPanel.classList.toggle('open'));
+
+  // ---- 일시정지 / 전체 지우기 ----
+  let isPaused = false;
+  function updatePauseBtn(paused) {
+    isPaused = paused;
+    pauseBtn.textContent = paused ? '▶ Resume' : '⏸ Pause';
+    pauseBtn.classList.toggle('paused', paused);
+  }
+  pauseBtn.addEventListener('click', () => {
+    socket.emit('adminSetPaused', { paused: !isPaused });
+  });
+  socket.on('pausedStateChanged', ({ paused }) => updatePauseBtn(!!paused));
+
+  clearAllBtn.addEventListener('click', () => {
+    if (items.length === 0) return;
+    if (!confirm(`Clear all ${items.length} drawings from the screen?`)) return;
+    items.slice().forEach((item) => socket.emit('adminDeleteDrawing', { drawingId: item.id }));
+  });
 
   // ---- 반짝임 강조 파티클 ----
   function spawnSparkles(item) {
