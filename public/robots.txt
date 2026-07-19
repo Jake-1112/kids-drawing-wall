@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /display/
+Disallow: /draw/
+Disallow: /api/
+
+Sitemap: https://kids-drawing-wall-1.onrender.com/sitemap.xml
