@@ -41,6 +41,12 @@ const THEMES = {
     emoji: '❄️',
     accent: '#0288d1',
     bgGradient: 'linear-gradient(180deg, #eaf6ff 0%, #90caf9 55%, #1565c0 100%)'
+  },
+  custom: {
+    label: 'Custom Photo',
+    emoji: '🖼️',
+    accent: '#616161',
+    bgGradient: 'linear-gradient(160deg, #e0e0e0 0%, #9e9e9e 100%)'
   }
 };
 

@@ -407,11 +407,14 @@
     addBtn.style.display = 'block';
 
     const t = THEMES[theme] || THEMES.ocean;
-    stage.style.background = t.bgGradient;
+    if (theme === 'custom' && sessionInfo.customBackground) {
+      stage.style.background = `#222 url(${sessionInfo.customBackground}) center / cover no-repeat`;
+    } else {
+      stage.style.background = t.bgGradient;
+      createDecorations(theme);
+    }
     titleText.textContent = sessionInfo.title || '';
     updatePauseBtn(!!sessionInfo.paused);
-
-    createDecorations(theme);
 
     socket.emit('joinSession', { sessionId, role: 'display' });
     requestAnimationFrame(tick);

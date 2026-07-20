@@ -62,6 +62,9 @@
   .themeCard .emoji { font-size: 40px; }
   .themeCard:hover { transform: translateY(-3px); }
   .themeCard.selected { border-color: #222; transform: translateY(-3px) scale(1.02); }
+  .themeCard.hasCustomBg { background-size: cover; background-position: center; }
+  .themeCard.hasCustomBg span { text-shadow: 0 2px 6px rgba(0,0,0,0.7); }
+  .themeCard .hint { font-size: 11px; font-weight: 500; opacity: 0.85; }
 
   #startBtn {
     border: none;
@@ -99,6 +102,7 @@
   <input id="titleInput" type="text" maxlength="40" placeholder="Playground title (optional, e.g. Emma's Birthday Party 🎉)" />
 
   <div id="themes"></div>
+  <input type="file" id="customBgInput" accept="image/*" style="display:none" />
 
   <button id="startBtn">Start →</button>
   <div id="errorMsg"></div>
@@ -118,15 +122,28 @@
   const themesEl = document.getElementById('themes');
   const startBtn = document.getElementById('startBtn');
   const errorMsg = document.getElementById('errorMsg');
+  const customBgInput = document.getElementById('customBgInput');
+  const MAX_CUSTOM_BG_BYTES = 3 * 1024 * 1024; // base64로 변환하면 서버 제한(4MB) 안쪽으로 들어옴
   let selectedTheme = null;
+  let customBackgroundDataUrl = null;
+  let customCard = null;
 
   Object.entries(THEMES).forEach(([key, t]) => {
     const card = document.createElement('div');
     card.className = 'themeCard';
     card.style.background = t.bgGradient;
     card.dataset.theme = key;
-    card.innerHTML = `<span class="emoji">${t.emoji}</span><span>${t.label}</span>`;
+    if (key === 'custom') {
+      customCard = card;
+      card.innerHTML = `<span class="emoji">${t.emoji}</span><span>${t.label}</span><span class="hint">Tap to upload a photo</span>`;
+    } else {
+      card.innerHTML = `<span class="emoji">${t.emoji}</span><span>${t.label}</span>`;
+    }
     card.addEventListener('click', () => {
+      if (key === 'custom') {
+        customBgInput.click();
+        return;
+      }
       document.querySelectorAll('.themeCard').forEach((c) => c.classList.remove('selected'));
       card.classList.add('selected');
       selectedTheme = key;
@@ -136,8 +153,32 @@
     themesEl.appendChild(card);
   });
 
+  customBgInput.addEventListener('change', () => {
+    const file = customBgInput.files[0];
+    customBgInput.value = '';
+    if (!file) return;
+    if (file.size > MAX_CUSTOM_BG_BYTES) {
+      errorMsg.textContent = 'That photo is too large. Please pick one under 3MB.';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      customBackgroundDataUrl = e.target.result;
+      customCard.style.backgroundImage = `url(${customBackgroundDataUrl})`;
+      customCard.classList.add('hasCustomBg');
+      customCard.querySelector('.hint').textContent = 'Photo selected ✓';
+      document.querySelectorAll('.themeCard').forEach((c) => c.classList.remove('selected'));
+      customCard.classList.add('selected');
+      selectedTheme = 'custom';
+      startBtn.classList.add('ready');
+      errorMsg.textContent = '';
+    };
+    reader.readAsDataURL(file);
+  });
+
   startBtn.addEventListener('click', async () => {
     if (!selectedTheme) return;
+    if (selectedTheme === 'custom' && !customBackgroundDataUrl) return;
     startBtn.disabled = true;
     startBtn.textContent = 'Starting...';
     try {
@@ -146,7 +187,8 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           theme: selectedTheme,
-          title: document.getElementById('titleInput').value.trim()
+          title: document.getElementById('titleInput').value.trim(),
+          customBackground: selectedTheme === 'custom' ? customBackgroundDataUrl : undefined
         })
       });
       if (!res.ok) throw new Error('session_failed');

@@ -27,9 +27,10 @@ const PORT = process.env.PORT || 3000;
 // 예: BASE_URL=https://mydrawingwall.com
 const BASE_URL_ENV = process.env.BASE_URL || null;
 
-const ALLOWED_THEMES = ['ocean', 'sky', 'forest', 'space', 'party', 'jungle', 'winter'];
+const ALLOWED_THEMES = ['ocean', 'sky', 'forest', 'space', 'party', 'jungle', 'winter', 'custom'];
 const SESSION_TTL_MS = (Number(process.env.SESSION_TTL_HOURS) || 12) * 60 * 60 * 1000; // 기본 12시간 지나면 자동 정리
 const MAX_DRAWING_BASE64_LENGTH = 4 * 1024 * 1024; // 그림 base64 문자열 최대 길이(대략 4MB)
+const MAX_CUSTOM_BG_BASE64_LENGTH = 4 * 1024 * 1024; // 호스트 배경사진 base64 최대 길이(대략 4MB)
 
 // 메모리에만 저장 (서버 재시작하거나 세션을 끝내면 사라짐 — 그림도 디스크에 저장하지 않고 실시간 중계만 함)
 const sessions = new Map(); // sessionId -> { theme, title, createdAt }
@@ -83,12 +84,13 @@ async function buildSessionPayload(id, sessionData) {
     theme: sessionData.theme,
     title: sessionData.title || '',
     paused: !!sessionData.paused,
+    customBackground: sessionData.customBackground || null,
     drawUrl,
     qrDataUrl
   };
 }
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '6mb' })); // 호스트 배경사진 업로드(base64)를 담기 위해 여유 있게 설정
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---- 페이지 라우트 ----
@@ -107,14 +109,25 @@ app.post('/api/session', async (req, res) => {
   if (!sessionCreateLimiter(req.ip)) {
     return res.status(429).json({ error: 'rate_limited' });
   }
-  const { theme, title } = req.body || {};
+  const { theme, title, customBackground } = req.body || {};
   if (!ALLOWED_THEMES.includes(theme)) {
     return res.status(400).json({ error: 'invalid_theme' });
+  }
+  let bg = null;
+  if (theme === 'custom') {
+    if (typeof customBackground !== 'string' || !customBackground.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'missing_custom_background' });
+    }
+    if (customBackground.length > MAX_CUSTOM_BG_BASE64_LENGTH) {
+      return res.status(400).json({ error: 'custom_background_too_large' });
+    }
+    bg = customBackground;
   }
   const id = genId();
   const sessionData = {
     theme,
     title: typeof title === 'string' ? title.slice(0, 40) : '',
+    customBackground: bg,
     createdAt: Date.now(),
     paused: false
   };
