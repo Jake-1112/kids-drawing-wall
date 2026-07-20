@@ -91,6 +91,25 @@
   }
   #itemActionMenu button:hover { background: rgba(255,255,255,0.28); }
 
+  /* 그림/말풍선 확대 보기 */
+  #zoomOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 70;
+    display: none; align-items: center; justify-content: center;
+  }
+  #zoomOverlay.show { display: flex; }
+  #zoomContent { display: flex; align-items: center; justify-content: center; }
+  #zoomContent img {
+    width: 80vw; height: 80vh; object-fit: contain;
+    border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+  }
+  #zoomContent .bubble.standalone { font-size: clamp(22px, 4vw, 44px); max-width: 78vw; padding: 32px 40px; }
+  #zoomCloseBtn {
+    position: fixed; top: 20px; right: 20px; z-index: 71;
+    width: 46px; height: 46px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,0.15); color: #fff; font-size: 20px; font-weight: 700; cursor: pointer;
+  }
+  #zoomCloseBtn:hover { background: rgba(255,255,255,0.28); }
+
   .shootingStar {
     position: absolute; width: 2px; height: 2px; background: #fff; border-radius: 50%;
     box-shadow: 0 0 6px 2px rgba(255,255,255,0.9); pointer-events: none;
@@ -212,6 +231,7 @@
     z-index: 40; border: none; background: rgba(0,0,0,0.4); color: #fff;
     padding: 14px 8px; border-radius: 12px 0 0 12px; cursor: pointer;
     font-size: 13px; font-weight: 700; writing-mode: vertical-rl; text-orientation: mixed;
+    transition: transform 0.3s ease;
   }
   #logPanel {
     position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 82vw);
@@ -220,7 +240,6 @@
     display: flex; flex-direction: column; backdrop-filter: blur(6px);
   }
   #logPanel.open { transform: translateX(0); }
-  #logPanel.open ~ #logTab, #logTab.open { transform: translateY(-50%); }
   #logHeader {
     padding: 18px 16px 10px; font-weight: 800; font-size: 16px;
     border-bottom: 1px solid rgba(255,255,255,0.15); flex-shrink: 0;
@@ -355,6 +374,11 @@
       <button id="closeModalBtn">Close</button>
     </div>
   </div>
+</div>
+
+<div id="zoomOverlay">
+  <button id="zoomCloseBtn" title="Close">✕</button>
+  <div id="zoomContent"></div>
 </div>
 
 <script src="/themes.js"></script>
@@ -780,6 +804,16 @@
     menu.style.left = clickX + 'px';
     menu.style.top = clickY + 'px';
 
+    const zoomBtn = document.createElement('button');
+    zoomBtn.title = 'Enlarge';
+    zoomBtn.textContent = '🔍';
+    zoomBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showZoomedItem(drawingId);
+      removeItemActionMenu();
+    });
+    menu.appendChild(zoomBtn);
+
     const sparkleBtn = document.createElement('button');
     sparkleBtn.title = 'Highlight';
     sparkleBtn.textContent = '✨';
@@ -807,6 +841,35 @@
       document.addEventListener('click', removeItemActionMenu, { once: true });
     }, 0);
   }
+
+  // ---- 그림/말풍선 크게 보기 ----
+  const zoomOverlay = document.getElementById('zoomOverlay');
+  const zoomContent = document.getElementById('zoomContent');
+
+  function showZoomedItem(drawingId) {
+    const item = items.find((it) => it.id === drawingId);
+    if (!item) return;
+    zoomContent.innerHTML = '';
+    const img = item.el.querySelector('img');
+    if (img && img.src) {
+      const bigImg = document.createElement('img');
+      bigImg.src = img.src;
+      zoomContent.appendChild(bigImg);
+    } else {
+      const bubble = item.el.querySelector('.bubble');
+      zoomContent.appendChild(createBubble(bubble ? bubble.textContent : '', true));
+    }
+    zoomOverlay.classList.add('show');
+  }
+
+  function closeZoomedItem() {
+    zoomOverlay.classList.remove('show');
+  }
+
+  document.getElementById('zoomCloseBtn').addEventListener('click', closeZoomedItem);
+  zoomOverlay.addEventListener('click', (e) => {
+    if (e.target === zoomOverlay) closeZoomedItem();
+  });
 
   // ---- 그림/말풍선 추가 ----
   function createBubble(text, standalone) {
@@ -985,7 +1048,30 @@
     }
   }
 
-  logTab.addEventListener('click', () => logPanel.classList.toggle('open'));
+  function openLogPanel() {
+    logPanel.classList.add('open');
+    const w = logPanel.getBoundingClientRect().width;
+    logTab.style.transform = `translateY(-50%) translateX(-${w}px)`;
+  }
+
+  function closeLogPanel() {
+    logPanel.classList.remove('open');
+    logTab.style.transform = '';
+  }
+
+  logTab.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (logPanel.classList.contains('open')) closeLogPanel();
+    else openLogPanel();
+  });
+
+  // 로그 패널이 열려 있을 때 패널/탭 바깥을 클릭하면 닫기
+  // 캡처 단계에서 검사해서, 그림 클릭처럼 버블링을 막는 핸들러가 있어도 항상 감지되게 함
+  document.addEventListener('click', (e) => {
+    if (!logPanel.classList.contains('open')) return;
+    if (logPanel.contains(e.target) || logTab.contains(e.target)) return;
+    closeLogPanel();
+  }, true);
 
   // ---- 일시정지 / 전체 지우기 ----
   let isPaused = false;
