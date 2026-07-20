@@ -23,6 +23,24 @@ const THEMES = {
     emoji: '🌌',
     accent: '#7c4dff',
     bgGradient: 'radial-gradient(ellipse at top, #2a2160 0%, #0a0a24 70%)'
+  },
+  party: {
+    label: 'Party',
+    emoji: '🎉',
+    accent: '#e91e63',
+    bgGradient: 'linear-gradient(180deg, #ffd6e8 0%, #ff8fb1 45%, #c2185b 100%)'
+  },
+  jungle: {
+    label: 'Jungle',
+    emoji: '🦕',
+    accent: '#558b2f',
+    bgGradient: 'linear-gradient(180deg, #e3f8c8 0%, #8bc34a 50%, #33691e 100%)'
+  },
+  winter: {
+    label: 'Winter',
+    emoji: '❄️',
+    accent: '#0288d1',
+    bgGradient: 'linear-gradient(180deg, #eaf6ff 0%, #90caf9 55%, #1565c0 100%)'
   }
 };
 

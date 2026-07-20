@@ -27,7 +27,7 @@ const PORT = process.env.PORT || 3000;
 // 예: BASE_URL=https://mydrawingwall.com
 const BASE_URL_ENV = process.env.BASE_URL || null;
 
-const ALLOWED_THEMES = ['ocean', 'sky', 'forest', 'space'];
+const ALLOWED_THEMES = ['ocean', 'sky', 'forest', 'space', 'party', 'jungle', 'winter'];
 const SESSION_TTL_MS = (Number(process.env.SESSION_TTL_HOURS) || 12) * 60 * 60 * 1000; // 기본 12시간 지나면 자동 정리
 const MAX_DRAWING_BASE64_LENGTH = 4 * 1024 * 1024; // 그림 base64 문자열 최대 길이(대략 4MB)
 
