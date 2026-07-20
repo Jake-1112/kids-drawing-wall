@@ -1121,19 +1121,73 @@
     wrapCanvasText(ctx, text, x + w / 2, y + h / 2, w - 20, 20);
   }
 
-  function saveStageAsImage() {
-    if (items.length === 0) { alert('No drawings on screen yet!'); return; }
-    const stageW = stage.clientWidth;
-    const stageH = stage.clientHeight;
-    const canvas = document.createElement('canvas');
-    canvas.width = stageW;
-    canvas.height = stageH;
-    const ctx = canvas.getContext('2d');
-
-    const t = THEMES[theme] || THEMES.ocean;
-    ctx.fillStyle = t.accent || '#4fb7e8';
+  function fillThemeBackground(ctx, stageW, stageH, t) {
+    const stops = t.gradientStops;
+    if (!stops) {
+      ctx.fillStyle = t.accent || '#4fb7e8';
+      ctx.fillRect(0, 0, stageW, stageH);
+      return;
+    }
+    let grad;
+    if (t.gradientType === 'radial') {
+      grad = ctx.createRadialGradient(stageW / 2, 0, 0, stageW / 2, 0, Math.max(stageW, stageH));
+    } else {
+      grad = ctx.createLinearGradient(0, 0, 0, stageH);
+    }
+    stops.forEach(([offset, color]) => grad.addColorStop(offset, color));
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, stageW, stageH);
+  }
 
+  function drawImageCover(ctx, img, x, y, w, h) {
+    const imgRatio = img.naturalWidth / img.naturalHeight;
+    const boxRatio = w / h;
+    let sx, sy, sw, sh;
+    if (imgRatio > boxRatio) {
+      sh = img.naturalHeight;
+      sw = sh * boxRatio;
+      sx = (img.naturalWidth - sw) / 2;
+      sy = 0;
+    } else {
+      sw = img.naturalWidth;
+      sh = sw / boxRatio;
+      sx = 0;
+      sy = (img.naturalHeight - sh) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  }
+
+  function drawOverlayText(ctx, stageW, stageH) {
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+
+    if (sessionInfo && sessionInfo.title) {
+      ctx.font = '800 26px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.shadowBlur = 8;
+      ctx.fillText(sessionInfo.title, 20, 16);
+    }
+
+    ctx.font = '700 14px sans-serif';
+    ctx.textBaseline = 'bottom';
+    ctx.shadowBlur = 4;
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText(`${items.length} drawing${items.length === 1 ? '' : 's'}`, 20, stageH - 14);
+
+    const ts = new Date().toLocaleString([], {
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+    });
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText(ts, stageW - 20, stageH - 14);
+
+    ctx.shadowBlur = 0;
+  }
+
+  function drawItemsOnCanvas(ctx) {
     items.forEach((item) => {
       const img = item.el.querySelector('img');
       if (img && img.complete && img.naturalWidth > 0) {
@@ -1152,11 +1206,38 @@
         ctx.shadowBlur = 0;
       }
     });
+  }
 
+  function downloadCanvas(canvas) {
     const link = document.createElement('a');
     link.download = `drawing-playground-${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
+  }
+
+  function saveStageAsImage() {
+    const stageW = stage.clientWidth;
+    const stageH = stage.clientHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = stageW;
+    canvas.height = stageH;
+    const ctx = canvas.getContext('2d');
+
+    function finish() {
+      drawItemsOnCanvas(ctx);
+      drawOverlayText(ctx, stageW, stageH);
+      downloadCanvas(canvas);
+    }
+
+    if (theme === 'custom' && sessionInfo && sessionInfo.customBackground) {
+      const bgImg = new Image();
+      bgImg.onload = () => { drawImageCover(ctx, bgImg, 0, 0, stageW, stageH); finish(); };
+      bgImg.onerror = () => { ctx.fillStyle = '#333'; ctx.fillRect(0, 0, stageW, stageH); finish(); };
+      bgImg.src = sessionInfo.customBackground;
+    } else {
+      fillThemeBackground(ctx, stageW, stageH, THEMES[theme] || THEMES.ocean);
+      finish();
+    }
   }
 
   document.getElementById('saveImageBtn').addEventListener('click', saveStageAsImage);
