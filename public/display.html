@@ -166,7 +166,9 @@
   #qrCorner {
     position: fixed; right: 16px; bottom: 16px; z-index: 22;
     width: 108px; height: 108px; cursor: pointer; perspective: 700px;
+    transform-origin: bottom right; transition: transform 0.25s ease;
   }
+  #qrCorner.zoomed { transform: scale(2); }
   #qrCornerInner {
     position: relative; width: 100%; height: 100%;
     transition: transform 0.5s; transform-style: preserve-3d;
@@ -184,6 +186,15 @@
     background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); color: #fff;
     transform: rotateY(180deg); font-size: 11px; font-weight: 700; text-align: center; padding: 8px;
   }
+  #qrZoomBtn {
+    position: absolute; top: 0; left: 0; z-index: 3;
+    width: 0; height: 0; cursor: pointer;
+    border-style: solid; border-width: 20px 20px 0 0;
+    border-color: #ff5252 transparent transparent transparent;
+    border-top-left-radius: 14px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.35));
+  }
+  #qrCorner.flipped #qrZoomBtn { display: none; }
 
   /* 연결 상태 배너 */
   #connStatus {
@@ -310,6 +321,7 @@
 <button id="addBtn" style="display:none;">➕ Add a Drawing</button>
 
 <div id="qrCorner" style="display:none;" title="Click to hide/show the QR code">
+  <div id="qrZoomBtn" title="Enlarge QR code"></div>
   <div id="qrCornerInner">
     <div id="qrCornerFront">
       <img id="qrCornerImg" src="" alt="QR code" />
@@ -1331,6 +1343,11 @@
   // ---- 오른쪽 아래 상시 QR 위젯 (클릭하면 뒤집혀서 숨김/표시) ----
   qrCorner.addEventListener('click', () => {
     qrCorner.classList.toggle('flipped');
+    if (qrCorner.classList.contains('flipped')) qrCorner.classList.remove('zoomed');
+  });
+  document.getElementById('qrZoomBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    qrCorner.classList.toggle('zoomed');
   });
 
   // ---- 나가기 ----

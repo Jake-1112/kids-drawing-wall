@@ -17,7 +17,18 @@
 
   #themeBar {
     flex-shrink: 0; padding: 10px 14px; color: #fff; font-weight: 800; font-size: 14px;
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  #themeLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #myPlaygroundLink {
+    flex-shrink: 0; color: #fff; text-decoration: none; font-size: 12px; font-weight: 800;
+    background: rgba(0,0,0,0.25); padding: 7px 12px; border-radius: 999px; white-space: nowrap;
+  }
+
+  #createOwnBtn {
+    display: inline-block; margin-top: 6px; color: #fff; text-decoration: none;
+    background: #ff5252; font-size: 17px; font-weight: 800; padding: 14px 28px;
+    border-radius: 999px; box-shadow: 0 6px 16px rgba(0,0,0,0.35);
   }
 
   #canvasWrap {
@@ -88,11 +99,15 @@
 <div id="errorBox">
   <div class="big">🙈</div>
   <div>This playground has ended or doesn't exist.</div>
-  <div style="font-size:13px;color:#aaa;">Ask the host for a new QR code.</div>
+  <div style="font-size:13px;color:#aaa;">Ask the host for a new QR code, or start your own!</div>
+  <a id="createOwnBtn" href="/" target="_blank" rel="noopener">🎨 Create My Own Playground</a>
 </div>
 
 <div id="app">
-  <div id="themeBar"><span id="themeLabel"></span></div>
+  <div id="themeBar">
+    <span id="themeLabel"></span>
+    <a id="myPlaygroundLink" href="/" target="_blank" rel="noopener">+ My Playground</a>
+  </div>
   <div id="nameBar">
     <label for="nameInput">Name (optional)</label>
     <input id="nameInput" type="text" maxlength="10" placeholder="Whose drawing is this?" />
