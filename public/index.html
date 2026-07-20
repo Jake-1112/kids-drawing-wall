@@ -88,6 +88,40 @@
     width: min(720px, 92vw); margin-top: 8px; padding: 0 clamp(20px, 5vw, 48px) 8px;
     text-align: center; color: #888; font-size: 13px; line-height: 1.6;
   }
+
+  #content {
+    width: min(720px, 92vw); padding: 8px clamp(20px, 5vw, 48px) 32px; color: #555;
+  }
+  #content h2 {
+    font-size: 20px; color: #2b2b3a; margin: 36px 0 14px; text-align: center;
+  }
+  #steps {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 8px;
+  }
+  .step {
+    background: #fff; border-radius: 16px; padding: 18px 14px; text-align: center;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  }
+  .step .stepNum {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; background: #7c4dff; color: #fff;
+    font-weight: 800; font-size: 13px; margin-bottom: 8px;
+  }
+  .step h3 { font-size: 14px; color: #2b2b3a; margin-bottom: 4px; }
+  .step p { font-size: 13px; color: #888; line-height: 1.5; }
+
+  #useCases {
+    list-style: none; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+  }
+  #useCases li {
+    background: #fff; border-radius: 999px; padding: 8px 16px;
+    font-size: 13px; color: #555; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .faqItem { margin-bottom: 18px; }
+  .faqItem h3 { font-size: 15px; color: #2b2b3a; margin-bottom: 4px; }
+  .faqItem p { font-size: 13px; color: #777; line-height: 1.6; }
+
   #footer {
     margin-top: 18px; text-align: center; font-size: 12px; color: #aaa;
   }
@@ -113,6 +147,62 @@
   Pick a theme, share the QR code, and anyone nearby can draw on their phone or tablet — their drawing floats
   onto the big screen instantly. No sign-up, no app install, and nothing is saved after the playground ends.
 </div>
+
+<div id="content">
+  <h2>How it works</h2>
+  <div id="steps">
+    <div class="step">
+      <div class="stepNum">1</div>
+      <h3>Pick a theme</h3>
+      <p>Ocean, sky, forest, space, party, jungle, winter — or upload your own photo as the background.</p>
+    </div>
+    <div class="step">
+      <div class="stepNum">2</div>
+      <h3>Share the QR code</h3>
+      <p>Anyone nearby scans it with their phone or tablet camera. No app to install, no account to make.</p>
+    </div>
+    <div class="step">
+      <div class="stepNum">3</div>
+      <h3>Watch it come alive</h3>
+      <p>Drawings and messages float onto the big screen in real time as people send them in.</p>
+    </div>
+  </div>
+
+  <h2>Great for</h2>
+  <ul id="useCases">
+    <li>🎂 Birthday parties</li>
+    <li>🏫 Classrooms</li>
+    <li>💍 Weddings &amp; family gatherings</li>
+    <li>🏢 Team events</li>
+    <li>🎪 Festivals &amp; fairs</li>
+  </ul>
+
+  <h2>Frequently asked questions</h2>
+  <div class="faqItem">
+    <h3>Is it really free?</h3>
+    <p>Yes. There's no cost, no account, and no watermark. Just pick a theme and start.</p>
+  </div>
+  <div class="faqItem">
+    <h3>Do people need to install an app to draw?</h3>
+    <p>No. Scanning the QR code opens a drawing screen directly in their phone or tablet's browser.</p>
+  </div>
+  <div class="faqItem">
+    <h3>Is anything saved after the playground ends?</h3>
+    <p>By default, nothing is stored on our servers — drawings only exist in memory while the session is
+    active and disappear when it ends. The host can optionally save a photo of the wall to their own
+    device before ending the session; that happens entirely in their browser and isn't uploaded anywhere.</p>
+  </div>
+  <div class="faqItem">
+    <h3>Can I use my own photo as the background?</h3>
+    <p>Yes — choose the "Custom Photo" option when picking a theme and upload any image from your device.</p>
+  </div>
+  <div class="faqItem">
+    <h3>How many people can draw at once?</h3>
+    <p>As many as want to scan the QR code. The big screen keeps the most recent drawings floating and
+    gently retires older ones to make room for new ones.</p>
+  </div>
+</div>
+
 <div id="footer">
   <a href="/privacy.html">Privacy Policy</a>
 </div>
